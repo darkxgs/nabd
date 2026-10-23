@@ -174,4 +174,15 @@ CREATE TABLE nabd.app_jobs (
 );
 `,
   },
+  {
+    // Keys the app makes for itself when AUTH_SECRET isn't set.
+    name: "0002_app_keys",
+    sql: `
+CREATE TABLE nabd.app_keys (
+  name       text PRIMARY KEY,
+  value      text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+`,
+  },
 ];

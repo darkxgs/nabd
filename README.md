@@ -82,14 +82,14 @@ Open the demo workspace from `/login`, or create an account. Locally, Nabd may c
 
 1. Import the repository into Vercel.
 2. Connect Postgres (Neon works on the free plan). Nabd keeps its tables in its own `nabd` schema, so it can share a database with another app. Migrations run during the build.
-3. Set `AUTH_SECRET` and `CRON_SECRET` to long random strings. Optionally set `RESEND_API_KEY` and `EMAIL_FROM` for email alerts.
+3. Optionally set `CRON_SECRET` (a long random string) so only Vercel Cron can reset the demo, and `RESEND_API_KEY` and `EMAIL_FROM` for email alerts. No secret is required: without `AUTH_SECRET`, Nabd makes a random signing key on first use and keeps it in the database.
 4. In the GitHub repository, add a variable `NABD_URL` with the deployment's address so the heartbeat workflow can reach it. (GitHub pauses scheduled workflows after 60 days without commits; re-enable it from the Actions tab.)
 
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` / `DATABASE_URL_UNPOOLED` | Postgres; the direct URL is used for migrations |
-| `AUTH_SECRET` | Signs session cookies |
-| `CRON_SECRET` | Protects `/api/cron/*`; a request with it skips the tick throttle |
+| `AUTH_SECRET` | Signs session cookies. Without it, a random key kept in the database does |
+| `CRON_SECRET` | Sent by Vercel Cron. Protects the demo reset; a request with it skips the tick throttle |
 | `NABD_PUBLIC_URL` | Public address for links in alerts (Vercel's is used by default) |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Email alerts. Without them, email alerts are recorded as simulated |
 | `NABD_SEED_DEMO` | `0` skips the demo workspace |

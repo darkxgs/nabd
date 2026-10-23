@@ -16,6 +16,7 @@ import type { ProbeResult } from "@/lib/rules";
 import { deliverAlerts, signBody, validateChannelTarget } from "@/server/alerts";
 import { checkMonitor, claimDue, runDueChecks } from "@/server/engine";
 import { probe } from "@/server/probe";
+import { storedKey } from "@/server/keys";
 
 let server: http.Server;
 let base = "";
@@ -193,5 +194,16 @@ describe("the demo workspace", () => {
     expect(comps.filter((c) => c.slug === DEMO.targetSlug).map((c) => c.monitor_id)).toEqual(["mon_mawid_book", "mon_target"]);
     expect(DEMO_MONITORS.map((m) => m.id)).toEqual([...SEEDED_MONITOR_IDS]);
     await client.close();
+  });
+});
+
+describe("the session key", () => {
+  it("is made once, kept in the database, and found again by every instance", async () => {
+    const [a, b] = await Promise.all([storedKey(conn.raw, "session"), storedKey(conn.raw, "session")]);
+    expect(a.length).toBeGreaterThanOrEqual(40);
+    expect(b).toBe(a);
+    expect(await storedKey(conn.raw, "session")).toBe(a);
+    const rows = await rawQuery<{ name: string; value: string }>(conn.raw, `SELECT name, value FROM nabd.app_keys`);
+    expect(rows).toEqual([{ name: "session", value: a }]);
   });
 });
