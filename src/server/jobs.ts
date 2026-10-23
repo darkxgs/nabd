@@ -28,7 +28,7 @@ export type TickResult = { ran: boolean; checked: number; opened: number; resolv
 /**
  * One heartbeat of the whole system: run due checks, deliver alerts, and once
  * an hour drop raw checks older than 48 hours (hourly rollups keep 90 days).
- * Called by GitHub Actions every five minutes, by Vercel Cron as a backstop,
+ * Called by GitHub Actions every fifteen minutes, by Vercel Cron as a backstop,
  * and after page views.
  */
 export async function tick(opts: { force?: boolean; conn?: Connection } = {}): Promise<TickResult> {

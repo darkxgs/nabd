@@ -4,7 +4,7 @@ Uptime monitoring for small teams: Nabd checks your websites and APIs from the i
 
 *Nabd* is Arabic for pulse.
 
-**Live demo:** open the demo workspace from the home page, no sign-up needed. It watches the sites I've built (my portfolio, Mawid, Salad Store, NeoWave) plus a test service that fails on purpose at 01:20 and 13:20 UTC, so there is always an incident to look at.
+**Live demo:** open the demo workspace from the home page, no sign-up needed. It watches the sites I've built (my portfolio, Mawid, Khatm, Sufra, Salad Store, NeoWave) every fifteen minutes, plus a test service that fails on purpose for 45 minutes from 01:20 and 13:20 UTC, so there is always an incident to look at.
 
 ## What it does
 
@@ -38,12 +38,14 @@ Uptime monitoring for small teams: Nabd checks your websites and APIs from the i
 | Data | Postgres with Drizzle ORM and hand-written SQL for the hot paths; PGlite (Postgres in WASM) locally and in tests |
 | Checks | undici with a guarded DNS lookup, manual redirects, streamed keyword search |
 | UI | Tailwind CSS 4, IBM Plex Sans, Plex Sans Condensed for figures, Plex Sans Arabic. No component library, no chart library |
-| Scheduling | GitHub Actions every 5 minutes, page views, and a daily Vercel cron, all throttled through one database row |
+| Scheduling | GitHub Actions every 15 minutes, page views, and a daily Vercel cron, all throttled through one database row |
 | Hosting | Vercel and Neon, both on free plans |
 
 ### Decisions worth reading
 
-**One scheduler row, many triggers.** Free hosting has no always-on worker, so several things ask Nabd to run: a GitHub Actions workflow every five minutes, page views (through `after()`, so the page never waits), and a daily Vercel cron. `/api/tick` claims a row in `app_jobs` with `INSERT … ON CONFLICT … WHERE ran_at < now() - 55 s RETURNING`, so however many triggers arrive at once, the work runs once a minute at most.
+**One scheduler row, many triggers.** Free hosting has no always-on worker, so several things ask Nabd to run: a GitHub Actions workflow every fifteen minutes, page views (through `after()`, so the page never waits), and a daily Vercel cron. `/api/tick` claims a row in `app_jobs` with `INSERT … ON CONFLICT … WHERE ran_at < now() - 55 s RETURNING`, so however many triggers arrive at once, the work runs once a minute at most.
+
+**Fifteen minutes is a budget, not a limit.** Monitors can be checked every five minutes, and the code would keep up, but the hosted demo's database is on Neon's free plan: 100 compute-hours a month, asleep after five idle minutes. A heartbeat every five minutes would keep it awake around the clock, about 180 hours, so the workflow runs every fifteen and the database sleeps two thirds of the time. For the same reason the demo only watches static pages, which never wake another app's database. On an always-on database, set the workflow to `*/5`.
 
 **Two runners never check the same monitor.** Due monitors are claimed and pushed to their next slot in a single statement:
 

@@ -191,7 +191,7 @@ describe("the demo workspace", () => {
       `SELECT p.slug, l.monitor_id FROM nabd.status_page_monitors l JOIN nabd.status_pages p ON p.id = l.status_page_id ORDER BY p.slug, l.position`,
     );
     expect(comps.filter((c) => c.slug === DEMO.statusSlug).map((c) => c.monitor_id)).not.toContain("mon_target");
-    expect(comps.filter((c) => c.slug === DEMO.targetSlug).map((c) => c.monitor_id)).toEqual(["mon_mawid_book", "mon_target"]);
+    expect(comps.filter((c) => c.slug === DEMO.targetSlug).map((c) => c.monitor_id)).toEqual(["mon_mawid", "mon_target"]);
     expect(DEMO_MONITORS.map((m) => m.id)).toEqual([...SEEDED_MONITOR_IDS]);
     await client.close();
   });

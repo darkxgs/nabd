@@ -71,10 +71,12 @@ describe("the network guard", () => {
 });
 
 describe("the demo target", () => {
-  it("goes down twice a day for 30 minutes", () => {
+  it("goes down twice a day for 45 minutes", () => {
     expect(demoTargetMode(new Date("2026-11-02T01:25:00Z"))).toBe("down");
-    expect(demoTargetMode(new Date("2026-11-02T13:49:00Z"))).toBe("down");
-    expect(demoTargetMode(new Date("2026-11-02T13:50:00Z"))).toBe("ok");
+    expect(demoTargetMode(new Date("2026-11-02T02:04:00Z"))).toBe("down");
+    expect(demoTargetMode(new Date("2026-11-02T02:05:00Z"))).toBe("ok");
+    expect(demoTargetMode(new Date("2026-11-02T14:04:59Z"))).toBe("down");
+    expect(demoTargetMode(new Date("2026-11-02T14:05:00Z"))).toBe("ok");
     expect(demoTargetMode(new Date("2026-11-02T13:19:00Z"))).toBe("ok");
     expect(demoTargetMode(new Date("2026-11-02T03:50:00Z"))).toBe("slow");
     const w = demoOutagesBetween(new Date("2026-11-01T00:00:00Z"), new Date("2026-11-03T00:00:00Z"));

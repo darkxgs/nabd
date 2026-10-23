@@ -3,7 +3,7 @@ import { DEMO_TARGET_KEYWORD, DEMO_TARGET_SLOW_MS, demoTargetMode } from "@/lib/
 
 /**
  * A page that misbehaves on a timetable, so the demo always has something to
- * show: down for 20 minutes at 01:20 and 13:20 UTC, slow for 10 minutes every
+ * show: down for 45 minutes from 01:20 and 13:20 UTC, slow for 10 minutes every
  * three hours, healthy otherwise.
  */
 export async function GET() {

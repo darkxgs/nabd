@@ -1,12 +1,17 @@
-# Free scheduling: GitHub runs this every five minutes (best effort; GitHub can
-# delay scheduled runs at busy times) and it asks Nabd to run whatever checks
-# are due. Page views and a daily Vercel cron also trigger runs, and the work
-# is throttled in the database, so overlapping triggers never double-check.
+# Free scheduling: GitHub runs this every fifteen minutes (best effort; GitHub
+# can delay scheduled runs at busy times) and it asks Nabd to run whatever
+# checks are due. Page views and a daily Vercel cron also trigger runs, and the
+# work is throttled in the database, so overlapping triggers never double-check.
+#
+# Why fifteen and not five: Neon's free plan gives a database 100 compute-hours
+# a month and puts it to sleep after five idle minutes. A run every five minutes
+# would keep it awake around the clock (about 180 hours); every fifteen, it
+# sleeps about two thirds of the time. With an always-on database, use */5.
 name: Heartbeat
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch:
 
 jobs:

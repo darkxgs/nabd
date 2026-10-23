@@ -4,11 +4,15 @@
 
 export type TargetMode = "ok" | "slow" | "down";
 
-/** Down for 30 minutes twice a day (01:20 and 13:20 UTC); slow for 10 minutes every three hours. */
+/** Minutes the test service stays down. Long enough for two checks fifteen minutes apart to land inside. */
+export const DEMO_OUTAGE_MIN = 45;
+
+/** Down for 45 minutes twice a day (from 01:20 and 13:20 UTC); slow for 10 minutes every three hours. */
 export function demoTargetMode(at: Date): TargetMode {
   const h = at.getUTCHours();
   const m = at.getUTCMinutes();
-  if (h % 12 === 1 && m >= 20 && m < 50) return "down";
+  const sinceStart = (h % 12) * 60 + m - 80; // minutes since 01:20 or 13:20
+  if (sinceStart >= 0 && sinceStart < DEMO_OUTAGE_MIN) return "down";
   if (h % 3 === 0 && m >= 45 && m < 55) return "slow";
   return "ok";
 }
@@ -20,7 +24,7 @@ export function demoOutagesBetween(from: Date, to: Date): { start: Date; end: Da
   for (; day < to; day.setUTCDate(day.getUTCDate() + 1)) {
     for (const h of [1, 13]) {
       const start = new Date(day.getTime() + h * 3_600_000 + 20 * 60_000);
-      const end = new Date(start.getTime() + 30 * 60_000);
+      const end = new Date(start.getTime() + DEMO_OUTAGE_MIN * 60_000);
       if (start >= from && end <= to) out.push({ start, end });
     }
   }

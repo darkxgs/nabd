@@ -26,7 +26,8 @@ type SeedMonitor = {
 export const DEMO_MONITORS: SeedMonitor[] = [
   { id: "mon_portfolio", name: "seifashraf.dev", url: () => "https://www.seifashraf.dev", keyword: "Seif Ashraf", baseMs: 190, label: "Portfolio website", labelAr: "الموقع الشخصي" },
   { id: "mon_mawid", name: "Mawid, landing page", url: () => "https://mawid-bay.vercel.app", keyword: "Mawid", baseMs: 260, label: "Mawid website", labelAr: "موقع موعد" },
-  { id: "mon_mawid_book", name: "Mawid, booking page", url: () => "https://mawid-bay.vercel.app/b/noor-dental", baseMs: 340, label: "Mawid booking page", labelAr: "صفحة الحجز في موعد" },
+  { id: "mon_khatm", name: "Khatm", url: () => "https://khatm-invoices.vercel.app/en", keyword: "Khatm", baseMs: 210, label: "Khatm website", labelAr: "موقع ختم" },
+  { id: "mon_sufra", name: "Sufra", url: () => "https://sufra-tables.vercel.app/en", keyword: "Sufra", baseMs: 240, label: "Sufra website", labelAr: "موقع سفرة" },
   { id: "mon_salad", name: "Salad Store", url: () => "https://saladstore-eg.vercel.app", baseMs: 150, label: "Salad Store website", labelAr: "موقع سلاد ستور" },
   { id: "mon_neowave", name: "NeoWave", url: () => "https://neowave-site.vercel.app", baseMs: 230, label: "NeoWave website", labelAr: "موقع نيو ويف" },
   { id: "mon_bluesky", name: "Blue Sky Events (concept)", url: () => "https://blue-skye.vercel.app", baseMs: 180, label: "Blue Sky Events concept", labelAr: "تصور بلو سكاي" },
@@ -41,15 +42,21 @@ export const DEMO_MONITORS: SeedMonitor[] = [
   },
 ];
 
-/** Seif's page shows his real sites only; the demo page pairs the test service with a real booking page. */
+/**
+ * Seif's page shows his real sites only; the demo page pairs the test service
+ * with a real booking site. Every monitored page is static, so checking it
+ * every fifteen minutes never wakes another app's database.
+ */
 const SEIF_PAGE = DEMO_MONITORS.filter((m) => m.id !== "mon_target").map((m) => [m.id, m.label, m.labelAr]);
 const TARGET_PAGE = [
-  ["mon_mawid_book", "Booking website", "موقع الحجز"],
+  ["mon_mawid", "Booking website", "موقع الحجز"],
   ["mon_target", "Booking API", "واجهة الحجز البرمجية"],
 ];
 
 const HOUR = 3_600_000;
 const MIN = 60_000;
+/** The demo checks every fifteen minutes, the heartbeat's pace (see .github/workflows/heartbeat.yml). */
+const DEMO_INTERVAL_SEC = 900;
 
 async function one<T>(t: MigrationTarget, sql: string, params: unknown[] = []) {
   return (await rawQuery<T>(t, sql, params))[0];
@@ -114,9 +121,9 @@ export async function applyDemoConfig(t: MigrationTarget, now = new Date()) {
     await rawQuery(
       t,
       `INSERT INTO nabd.monitors (id, workspace_id, name, url, keyword, confirm_after, interval_sec, slow_ms, timeout_ms, position, state, next_check_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 300, 2000, 10000, $7, 'up', $8)
+       VALUES ($1, $2, $3, $4, $5, $6, ${DEMO_INTERVAL_SEC}, 2000, 10000, $7, 'up', $8)
        ON CONFLICT (id) DO UPDATE SET name = excluded.name, url = excluded.url, keyword = excluded.keyword, method = 'GET',
-         expected_status = '200-399', keyword_mode = 'contains', confirm_after = excluded.confirm_after, interval_sec = 300,
+         expected_status = '200-399', keyword_mode = 'contains', confirm_after = excluded.confirm_after, interval_sec = ${DEMO_INTERVAL_SEC},
          slow_ms = 2000, timeout_ms = 10000, position = excluded.position, paused = false`,
       [m.id, DEMO.workspaceId, m.name, m.url(), m.keyword ?? null, m.confirmAfter ?? 2, i, now.toISOString()],
     );
@@ -143,8 +150,8 @@ export async function applyDemoConfig(t: MigrationTarget, now = new Date()) {
         DEMO.statusSlug,
         "Seif Ashraf, live projects",
         "مشاريع سيف أشرف",
-        "Live status of the websites and products Seif Ashraf has built, checked every five minutes.",
-        "الحالة المباشرة للمواقع والمنتجات التي بناها سيف أشرف، تُفحص كل خمس دقائق.",
+        "Live status of the websites and products Seif Ashraf has built, checked every fifteen minutes.",
+        "الحالة المباشرة للمواقع والمنتجات التي بناها سيف أشرف، تُفحص كل ربع ساعة.",
         "en",
       ],
       [
@@ -180,8 +187,9 @@ async function seedSampleHistory(t: MigrationTarget, now: Date) {
       let sum = 0;
       let n = 0;
       let max = 0;
-      for (let s = 0; s < 12; s++) {
-        const at = new Date(h + s * 5 * MIN + 17_000);
+      // Four checks an hour, at :05:17, :20:17, :35:17 and :50:17.
+      for (let s = 0; s < HOUR / (DEMO_INTERVAL_SEC * 1000); s++) {
+        const at = new Date(h + 5 * MIN + s * DEMO_INTERVAL_SEC * 1000 + 17_000);
         const mode = isTarget ? demoTargetMode(at) : "ok";
         const ok = mode !== "down";
         const latency = ok ? (mode === "slow" ? DEMO_TARGET_SLOW_MS + Math.round(r() * 120) : latencyAt(m.baseMs, at, r)) : null;
@@ -203,15 +211,15 @@ async function seedSampleHistory(t: MigrationTarget, now: Date) {
   }
 
   // Sample incidents for the demo target's last two weeks of scheduled outages.
-  // Checks land at :x0:17 and :x5:17, so the first failure is at 13:20:17, the
-  // second one (which confirms it) at 13:25:17, and the first pass at 13:50:17.
+  // Checks land at 13:20:17 (the first failure), 13:35:17 (the second, which
+  // confirms it) and 13:50:17, and the first pass is at 14:05:17.
   const windows = demoOutagesBetween(new Date(end.getTime() - 14 * 24 * HOUR), end);
   const incRows: unknown[][] = [];
   const updRows: unknown[][] = [];
   for (const [i, w] of windows.entries()) {
     const id = `inc_sample_${i}`;
     const first = new Date(w.start.getTime() + 17_000);
-    const confirmed = new Date(first.getTime() + 5 * MIN);
+    const confirmed = new Date(first.getTime() + DEMO_INTERVAL_SEC * 1000);
     const back = new Date(w.end.getTime() + 17_000);
     const took = back.getTime() - first.getTime();
     incRows.push([id, DEMO.workspaceId, "mon_target", "Demo target (fails on a schedule) is down", "HTTP 503", "resolved", first.toISOString(), back.toISOString(), confirmed.toISOString()]);

@@ -14,7 +14,7 @@ export const DEMO = {
 };
 
 /** The monitors the demo ships with (kept in step with seed.ts by a test). */
-export const SEEDED_MONITOR_IDS = ["mon_portfolio", "mon_mawid", "mon_mawid_book", "mon_salad", "mon_neowave", "mon_bluesky", "mon_target"] as const;
+export const SEEDED_MONITOR_IDS = ["mon_portfolio", "mon_mawid", "mon_khatm", "mon_sufra", "mon_salad", "mon_neowave", "mon_bluesky", "mon_target"] as const;
 
 export const isDemoWorkspace = (workspaceId: string) => workspaceId === DEMO.workspaceId;
 export const isSeededMonitor = (monitorId: string) => (SEEDED_MONITOR_IDS as readonly string[]).includes(monitorId);
