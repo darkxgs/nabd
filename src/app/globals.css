@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+/*
+  Nabd design tokens.
+  The interface is ink on cool paper. Colour is reserved for one job: saying
+  whether something is up (green), slow (amber) or down (vermilion). Nothing
+  decorative is allowed to compete with those three.
+*/
+@theme {
+  --color-ink: #14181e;
+  --color-ink-2: #39414c;
+  --color-muted: #646d79;
+  --color-faint: #98a0ab;
+  --color-paper: #eef1f3;
+  --color-card: #ffffff;
+  --color-rule: #d8dde3;
+  --color-rule-2: #e6eaee;
+  --color-well: #f5f7f8;
+
+  --color-up: #13834f;
+  --color-up-soft: #dcf0e5;
+  --color-slow: #b2741a;
+  --color-slow-soft: #f7ebd6;
+  --color-down: #d6391f;
+  --color-down-soft: #fbe2dd;
+  --color-idle: #c5cbd3;
+
+  --font-sans: "IBM Plex Sans Variable", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --font-condensed: "IBM Plex Sans Condensed", "IBM Plex Sans Variable", ui-sans-serif, sans-serif;
+  --font-arabic: "IBM Plex Sans Arabic", ui-sans-serif, sans-serif;
+
+  --radius-panel: 6px;
+  --radius-control: 5px;
+
+  --animate-beat: beat 1.6s ease-in-out infinite;
+}
+
+@keyframes beat {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01";
+  text-rendering: optimizeLegibility;
+}
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+}
+
+::selection {
+  background: #cfd7e0;
+  color: var(--color-ink);
+}
+
+/* Numbers that line up in columns and never jump while they update. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+@layer components {
+  /* The readout face: big figures like 99.98% and 184 ms. */
+  .readout {
+    font-family: var(--font-condensed);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  [dir="rtl"] .readout,
+  :lang(ar) .readout {
+    letter-spacing: 0;
+  }
+  .font-arabic {
+    font-family: var(--font-arabic);
+  }
+  :lang(ar) {
+    line-height: 1.7;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
