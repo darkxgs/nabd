@@ -21,7 +21,9 @@ jobs:
     steps:
       - name: Run due checks
         env:
-          NABD_URL: ${{ vars.NABD_URL }}
+          # The NABD_URL repository variable wins; the original repository falls
+          # back to its own deployment, and a fork does nothing until it's set.
+          NABD_URL: ${{ vars.NABD_URL || (github.repository == 'darkxgs/nabd' && 'https://nabd-status.vercel.app' || '') }}
         run: |
           if [ -z "$NABD_URL" ]; then
             echo "::notice::Set the NABD_URL repository variable (Settings, Variables) to your deployment's address."

@@ -85,7 +85,7 @@ Open the demo workspace from `/login`, or create an account. Locally, Nabd may c
 1. Import the repository into Vercel.
 2. Connect Postgres (Neon works on the free plan). Nabd keeps its tables in its own `nabd` schema, so it can share a database with another app. Migrations run during the build.
 3. Optionally set `CRON_SECRET` (a long random string) so only Vercel Cron can reset the demo, and `RESEND_API_KEY` and `EMAIL_FROM` for email alerts. No secret is required: without `AUTH_SECRET`, Nabd makes a random signing key on first use and keeps it in the database.
-4. In the GitHub repository, add a variable `NABD_URL` with the deployment's address so the heartbeat workflow can reach it. (GitHub pauses scheduled workflows after 60 days without commits; re-enable it from the Actions tab.)
+4. In the GitHub repository, add a variable `NABD_URL` with the deployment's address so the heartbeat workflow can reach it (this repository falls back to https://nabd-status.vercel.app). (GitHub pauses scheduled workflows after 60 days without commits; re-enable it from the Actions tab.)
 
 | Variable | Purpose |
 |---|---|
