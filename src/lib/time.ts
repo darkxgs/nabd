@@ -85,3 +85,12 @@ export const TIMEZONES = [
   "America/New_York",
   "America/Los_Angeles",
 ] as const;
+
+export function isTimeZone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}

@@ -5,7 +5,7 @@ import { rawQuery } from "@/db/raw";
 import { checks, incidentUpdates, incidents, monitors, type Monitor } from "@/db/schema";
 import { appUrl } from "@/lib/app-url";
 import { newId } from "@/lib/id";
-import { formatDuration, formatDurationAr, nextState, type ProbeResult } from "@/lib/rules";
+import { causeAr, formatDuration, formatDurationAr, nextState, type ProbeResult } from "@/lib/rules";
 import { queueAlerts } from "./alerts";
 import { probe, readCertificate, type CertInfo, type ProbeTarget } from "./probe";
 
@@ -185,7 +185,7 @@ async function openIncident(conn: Connection, m: Monitor, r: ProbeResult, at: Da
     automatic: true,
     createdAt: at,
     body: `Not responding as expected (${cause}). We're looking into it.`,
-    bodyAr: `لا يستجيب كما ينبغي (${cause}). نعمل على معرفة السبب.`,
+    bodyAr: `لا يستجيب كما ينبغي (${causeAr(cause)}). نعمل على معرفة السبب.`,
   });
   await queueAlerts(conn.db, {
     workspaceId: m.workspaceId,

@@ -4,17 +4,13 @@
 // cut-off (sample_before) so every screen can say which part is sample.
 import bcrypt from "bcryptjs";
 import { appUrl } from "../lib/app-url";
+import { DEMO } from "../lib/demo";
 import { DEMO_TARGET_KEYWORD, DEMO_TARGET_SLOW_MS, demoOutagesBetween, demoTargetMode } from "../lib/demo-target";
+import { causeAr, formatDuration, formatDurationAr } from "../lib/rules";
 import type { MigrationTarget } from "./migrate";
 import { rawQuery } from "./raw";
 
-export const DEMO = {
-  userId: "usr_demo",
-  email: "demo@nabd.app",
-  password: "demo1234",
-  workspaceId: "ws_demo",
-  statusSlug: "seif",
-};
+export { DEMO };
 
 type SeedMonitor = {
   id: string;
@@ -40,10 +36,16 @@ export const DEMO_MONITORS: SeedMonitor[] = [
     url: () => `${appUrl()}/api/demo/target`,
     keyword: DEMO_TARGET_KEYWORD,
     baseMs: 120,
-    confirmAfter: 1,
-    label: "Booking API (demo target)",
-    labelAr: "واجهة الحجز (هدف تجريبي)",
+    label: "Booking API",
+    labelAr: "واجهة الحجز البرمجية",
   },
+];
+
+/** Seif's page shows his real sites only; the demo page pairs the test service with a real booking page. */
+const SEIF_PAGE = DEMO_MONITORS.filter((m) => m.id !== "mon_target").map((m) => [m.id, m.label, m.labelAr]);
+const TARGET_PAGE = [
+  ["mon_mawid_book", "Booking website", "موقع الحجز"],
+  ["mon_target", "Booking API", "واجهة الحجز البرمجية"],
 ];
 
 const HOUR = 3_600_000;
@@ -96,7 +98,7 @@ export async function seedDemo(t: MigrationTarget, now = new Date()) {
     DEMO.workspaceId,
     DEMO.userId,
     "Seif Ashraf, live projects",
-    "Asia/Dubai",
+    "UTC",
     now.toISOString(),
   ]);
   await applyDemoConfig(t, now);
@@ -130,25 +132,37 @@ export async function applyDemoConfig(t: MigrationTarget, now = new Date()) {
     ],
   );
   await rawQuery(t, `DELETE FROM nabd.status_pages WHERE workspace_id = $1`, [DEMO.workspaceId]);
-  await rawQuery(
-    t,
-    `INSERT INTO nabd.status_pages (id, workspace_id, slug, title, title_ar, intro, intro_ar, default_locale)
-     VALUES ('sp_demo', $1, $2, $3, $4, $5, $6, 'en')`,
-    [
-      DEMO.workspaceId,
-      DEMO.statusSlug,
-      "Seif Ashraf, live projects",
-      "مشاريع سيف أشرف",
-      "Live status of the websites and products Seif Ashraf has built, checked every five minutes.",
-      "الحالة المباشرة للمواقع والمنتجات التي بناها سيف أشرف، تُفحص كل خمس دقائق.",
-    ],
-  );
   await insertMany(
     t,
-    "nabd.status_page_monitors",
-    ["status_page_id", "monitor_id", "label", "label_ar", "position"],
-    DEMO_MONITORS.map((m, i) => ["sp_demo", m.id, m.label, m.labelAr, i]),
+    "nabd.status_pages",
+    ["id", "workspace_id", "slug", "title", "title_ar", "intro", "intro_ar", "default_locale"],
+    [
+      [
+        DEMO.statusPageId,
+        DEMO.workspaceId,
+        DEMO.statusSlug,
+        "Seif Ashraf, live projects",
+        "مشاريع سيف أشرف",
+        "Live status of the websites and products Seif Ashraf has built, checked every five minutes.",
+        "الحالة المباشرة للمواقع والمنتجات التي بناها سيف أشرف، تُفحص كل خمس دقائق.",
+        "en",
+      ],
+      [
+        DEMO.targetPageId,
+        DEMO.workspaceId,
+        DEMO.targetSlug,
+        "Demo booking service",
+        "خدمة الحجز التجريبية",
+        "Part of the Nabd demo. The booking API here is a test service that fails on purpose at 01:20 and 13:20 UTC, so you can see how an outage reads on a status page.",
+        "جزء من العرض التجريبي لنبض. واجهة الحجز هنا خدمة اختبار تتوقف عمدًا الساعة 01:20 و13:20 بتوقيت UTC، لترى كيف يظهر الانقطاع على صفحة الحالة.",
+        "en",
+      ],
+    ],
   );
+  await insertMany(t, "nabd.status_page_monitors", ["status_page_id", "monitor_id", "label", "label_ar", "position"], [
+    ...SEIF_PAGE.map(([id, label, labelAr], i) => [DEMO.statusPageId, id, label, labelAr, i]),
+    ...TARGET_PAGE.map(([id, label, labelAr], i) => [DEMO.targetPageId, id, label, labelAr, i]),
+  ]);
 }
 
 async function seedSampleHistory(t: MigrationTarget, now: Date) {
@@ -189,30 +203,36 @@ async function seedSampleHistory(t: MigrationTarget, now: Date) {
   }
 
   // Sample incidents for the demo target's last two weeks of scheduled outages.
+  // Checks land at :x0:17 and :x5:17, so the first failure is at 13:20:17, the
+  // second one (which confirms it) at 13:25:17, and the first pass at 13:50:17.
   const windows = demoOutagesBetween(new Date(end.getTime() - 14 * 24 * HOUR), end);
   const incRows: unknown[][] = [];
   const updRows: unknown[][] = [];
   for (const [i, w] of windows.entries()) {
     const id = `inc_sample_${i}`;
-    const detected = new Date(w.start.getTime() + 2 * MIN);
-    const back = new Date(w.end.getTime() + 2 * MIN);
-    incRows.push([id, DEMO.workspaceId, "mon_target", "Demo target (fails on a schedule) is down", "HTTP 503", "resolved", detected.toISOString(), back.toISOString()]);
+    const first = new Date(w.start.getTime() + 17_000);
+    const confirmed = new Date(first.getTime() + 5 * MIN);
+    const back = new Date(w.end.getTime() + 17_000);
+    const took = back.getTime() - first.getTime();
+    incRows.push([id, DEMO.workspaceId, "mon_target", "Demo target (fails on a schedule) is down", "HTTP 503", "resolved", first.toISOString(), back.toISOString(), confirmed.toISOString()]);
     updRows.push(
-      [`upd_sample_${i}_a`, id, "investigating", "Not responding as expected (HTTP 503). We're looking into it.", "لا يستجيب كما ينبغي (HTTP 503). نعمل على معرفة السبب.", true, detected.toISOString()],
-      [`upd_sample_${i}_b`, id, "resolved", "Responding normally again. It was down for 20 min.", "عاد للعمل بشكل طبيعي بعد توقف دام 20 دقيقة.", true, back.toISOString()],
+      [`upd_sample_${i}_a`, id, "investigating", "Not responding as expected (HTTP 503). We're looking into it.", `لا يستجيب كما ينبغي (${causeAr("HTTP 503")}). نعمل على معرفة السبب.`, true, confirmed.toISOString()],
+      [`upd_sample_${i}_b`, id, "resolved", `Responding normally again. It was down for ${formatDuration(took)}.`, `عاد للعمل بشكل طبيعي بعد توقف دام ${formatDurationAr(took)}.`, true, back.toISOString()],
     );
   }
   if (incRows.length) {
-    await insertMany(t, "nabd.incidents", ["id", "workspace_id", "monitor_id", "title", "cause", "state", "started_at", "resolved_at"], incRows);
+    await insertMany(t, "nabd.incidents", ["id", "workspace_id", "monitor_id", "title", "cause", "state", "started_at", "resolved_at", "acknowledged_at"], incRows);
     await insertMany(t, "nabd.incident_updates", ["id", "incident_id", "state", "body", "body_ar", "automatic", "created_at"], updRows);
   }
-  // Current state follows the sample: everything up, the target per its schedule.
+  // Current state follows the sample: everything up, the target since its last outage ended.
+  const lastBack = windows.length ? new Date(windows[windows.length - 1].end.getTime() + 17_000) : start;
   for (const m of DEMO_MONITORS) {
     const last = latencyAt(m.baseMs, end, rng(7));
-    await rawQuery(t, `UPDATE nabd.monitors SET last_checked_at = $2, last_latency_ms = $3, last_status = 200, state = 'up' WHERE id = $1`, [
+    await rawQuery(t, `UPDATE nabd.monitors SET last_checked_at = $2, last_latency_ms = $3, last_status = 200, state = 'up', state_since = $4 WHERE id = $1`, [
       m.id,
       new Date(end.getTime() - 3 * MIN).toISOString(),
       last,
+      (m.id === "mon_target" ? lastBack : start).toISOString(),
     ]);
   }
 }

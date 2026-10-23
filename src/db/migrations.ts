@@ -83,8 +83,10 @@ CREATE TABLE nabd.check_hours (
 CREATE TABLE nabd.incidents (
   id              text PRIMARY KEY,
   workspace_id    text NOT NULL REFERENCES nabd.workspaces(id) ON DELETE CASCADE,
-  monitor_id      text REFERENCES nabd.monitors(id) ON DELETE SET NULL,
+  -- NULL for incidents posted by hand, which show on every status page of the workspace.
+  monitor_id      text REFERENCES nabd.monitors(id) ON DELETE CASCADE,
   title           text NOT NULL,
+  title_ar        text,
   cause           text,
   state           text NOT NULL DEFAULT 'investigating'
                   CHECK (state IN ('investigating', 'identified', 'monitoring', 'resolved')),

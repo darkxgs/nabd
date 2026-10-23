@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import type { Connection } from "@/db";
 import { rawQuery } from "@/db/raw";
 import { alerts, channels, incidentUpdates, incidents, monitors, statusPageMonitors, statusPages, workspaces, type Monitor, type MonitorState } from "@/db/schema";
@@ -208,14 +208,14 @@ export async function loadStatusPage(conn: Connection, page: typeof statusPages.
   const ids = comps.map((c) => c.monitor.id);
   const [bars, w] = await Promise.all([dailyBars(conn, ids, ws.timezone), windows(conn, ids)]);
   const since = new Date(Date.now() - 14 * 24 * 3_600_000);
-  const incs = ids.length
-    ? await conn.db
-        .select()
-        .from(incidents)
-        .where(and(inArray(incidents.monitorId, ids)))
-        .orderBy(desc(incidents.startedAt))
-        .limit(60)
-    : [];
+  // The page's own components, plus notices posted by hand for the whole workspace.
+  const manual = and(isNull(incidents.monitorId), eq(incidents.workspaceId, page.workspaceId));
+  const incs = await conn.db
+    .select()
+    .from(incidents)
+    .where(ids.length ? or(inArray(incidents.monitorId, ids), manual) : manual)
+    .orderBy(desc(incidents.startedAt))
+    .limit(60);
   const relevant = incs.filter((i) => !i.resolvedAt || i.startedAt >= since);
   const updates = relevant.length
     ? await conn.db.select().from(incidentUpdates).where(inArray(incidentUpdates.incidentId, relevant.map((i) => i.id))).orderBy(desc(incidentUpdates.createdAt))
@@ -243,3 +243,47 @@ export async function loadStatusPage(conn: Connection, page: typeof statusPages.
   };
 }
 export type StatusPageData = NonNullable<Awaited<ReturnType<typeof statusPageBySlug>>>;
+
+/* ------------------------------ dashboard ------------------------------ */
+
+export async function getMonitor(conn: Connection, workspaceId: string, id: string) {
+  const [m] = await conn.db.select().from(monitors).where(and(eq(monitors.id, id), eq(monitors.workspaceId, workspaceId))).limit(1);
+  return m ?? null;
+}
+
+export async function monitorIncidents(conn: Connection, monitorId: string, limit = 8) {
+  return conn.db.select().from(incidents).where(eq(incidents.monitorId, monitorId)).orderBy(desc(incidents.startedAt)).limit(limit);
+}
+
+export async function listStatusPages(conn: Connection, workspaceId: string) {
+  const pages = await conn.db.select().from(statusPages).where(eq(statusPages.workspaceId, workspaceId)).orderBy(asc(statusPages.createdAt));
+  if (!pages.length) return [];
+  const counts = await conn.db
+    .select({ id: statusPageMonitors.statusPageId, n: count() })
+    .from(statusPageMonitors)
+    .where(inArray(statusPageMonitors.statusPageId, pages.map((p) => p.id)))
+    .groupBy(statusPageMonitors.statusPageId);
+  return pages.map((p) => ({ ...p, components: Number(counts.find((c) => c.id === p.id)?.n ?? 0) }));
+}
+
+export async function statusPageForEdit(conn: Connection, workspaceId: string, id: string) {
+  const [page] = await conn.db.select().from(statusPages).where(and(eq(statusPages.id, id), eq(statusPages.workspaceId, workspaceId))).limit(1);
+  if (!page) return null;
+  const links = await conn.db.select().from(statusPageMonitors).where(eq(statusPageMonitors.statusPageId, id)).orderBy(asc(statusPageMonitors.position));
+  return { page, links };
+}
+
+export async function listChannels(conn: Connection, workspaceId: string) {
+  return conn.db.select().from(channels).where(eq(channels.workspaceId, workspaceId)).orderBy(asc(channels.createdAt));
+}
+
+export async function recentAlerts(conn: Connection, workspaceId: string, limit = 40) {
+  return conn.db
+    .select({ alert: alerts, channelName: channels.name, channelKind: channels.kind, monitorName: monitors.name })
+    .from(alerts)
+    .leftJoin(channels, eq(channels.id, alerts.channelId))
+    .leftJoin(monitors, eq(monitors.id, alerts.monitorId))
+    .where(eq(alerts.workspaceId, workspaceId))
+    .orderBy(desc(alerts.createdAt))
+    .limit(limit);
+}

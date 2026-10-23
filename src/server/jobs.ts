@@ -8,16 +8,17 @@ import { runDueChecks } from "./engine";
 
 /**
  * Claims the right to run a job. Returns false when it ran within the last
- * `everyMin` minutes, so bursts of traffic never fan out into duplicate work.
+ * `everySec` seconds, so bursts of traffic never fan out into duplicate work.
+ * Also used as a simple rate limit ("check now" at most every 30 s).
  */
-export async function claim(conn: Connection, key: string, everyMin: number, force = false) {
+export async function claim(conn: Connection, key: string, everySec: number, force = false) {
   const rows = await rawQuery<{ key: string }>(
     conn.raw,
     `INSERT INTO nabd.app_jobs (key, ran_at) VALUES ($1, now())
      ON CONFLICT (key) DO UPDATE SET ran_at = excluded.ran_at
-     WHERE $3::boolean OR nabd.app_jobs.ran_at < now() - make_interval(mins => $2::int)
+     WHERE $3::boolean OR nabd.app_jobs.ran_at < now() - make_interval(secs => $2::int)
      RETURNING key`,
-    [key, everyMin, force],
+    [key, everySec, force],
   );
   return rows.length > 0;
 }
@@ -33,16 +34,18 @@ export type TickResult = { ran: boolean; checked: number; opened: number; resolv
 export async function tick(opts: { force?: boolean; conn?: Connection } = {}): Promise<TickResult> {
   const conn = opts.conn ?? (await getConnection());
   const empty: TickResult = { ran: false, checked: 0, opened: 0, resolved: 0, alerts: 0, purged: 0 };
-  if (!(await claim(conn, "tick", 1, !!opts.force))) return empty;
+  if (!(await claim(conn, "tick", 55, !!opts.force))) return empty;
   const r = await runDueChecks(conn, { allowPrivate: allowPrivateTargets(), deadline: Date.now() + 40_000 });
   const a = await deliverAlerts(conn);
   let purged = 0;
-  if (await claim(conn, "purge", 60)) {
+  if (await claim(conn, "purge", 3600)) {
     const old = await rawQuery<{ n: number }>(
       conn.raw,
       `WITH d AS (DELETE FROM nabd.checks WHERE checked_at < now() - interval '48 hours' RETURNING 1) SELECT count(*)::int AS n FROM d`,
     );
     await rawQuery(conn.raw, `DELETE FROM nabd.check_hours WHERE hour < now() - interval '95 days'`);
+    // Rate-limit stamps ("check now", test alerts) only matter for a few seconds.
+    await rawQuery(conn.raw, `DELETE FROM nabd.app_jobs WHERE ran_at < now() - interval '1 day' AND key NOT IN ('tick', 'purge')`);
     purged = old[0]?.n ?? 0;
   }
   return { ran: true, ...r, alerts: a.sent, purged };

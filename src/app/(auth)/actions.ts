@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getDb } from "@/db";
-import { DEMO } from "@/db/seed";
+import { DEMO } from "@/lib/demo";
 import { createAccount, EmailTakenError, verifyLogin } from "@/server/accounts";
 import { createSession, destroySession } from "@/server/auth";
 

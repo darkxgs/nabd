@@ -11,6 +11,7 @@ import { runMigrations } from "@/db/migrate";
 import { rawQuery } from "@/db/raw";
 import type { Connection, DB } from "@/db";
 import { DEMO, DEMO_MONITORS, applyDemoConfig } from "@/db/seed";
+import { SEEDED_MONITOR_IDS } from "@/lib/demo";
 import type { ProbeResult } from "@/lib/rules";
 import { deliverAlerts, signBody, validateChannelTarget } from "@/server/alerts";
 import { checkMonitor, claimDue, runDueChecks } from "@/server/engine";
@@ -183,6 +184,14 @@ describe("the demo workspace", () => {
     const mons = await rawQuery<{ id: string; paused: boolean; url: string }>(t, `SELECT id, paused, url FROM nabd.monitors ORDER BY position`);
     expect(mons.map((m) => m.id)).toEqual(DEMO_MONITORS.map((m) => m.id));
     expect(mons.find((m) => m.id === "mon_salad")).toMatchObject({ paused: false, url: "https://saladstore-eg.vercel.app" });
+    // Seif's page lists his real sites only; the test service has its own page.
+    const comps = await rawQuery<{ slug: string; monitor_id: string }>(
+      t,
+      `SELECT p.slug, l.monitor_id FROM nabd.status_page_monitors l JOIN nabd.status_pages p ON p.id = l.status_page_id ORDER BY p.slug, l.position`,
+    );
+    expect(comps.filter((c) => c.slug === DEMO.statusSlug).map((c) => c.monitor_id)).not.toContain("mon_target");
+    expect(comps.filter((c) => c.slug === DEMO.targetSlug).map((c) => c.monitor_id)).toEqual(["mon_mawid_book", "mon_target"]);
+    expect(DEMO_MONITORS.map((m) => m.id)).toEqual([...SEEDED_MONITOR_IDS]);
     await client.close();
   });
 });

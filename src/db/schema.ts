@@ -86,6 +86,7 @@ export const incidents = nabd.table("incidents", {
   workspaceId: text("workspace_id").notNull(),
   monitorId: text("monitor_id"),
   title: text("title").notNull(),
+  titleAr: text("title_ar"),
   cause: text("cause"),
   state: text("state").$type<IncidentState>().notNull().default("investigating"),
   startedAt: ts("started_at").notNull(),

@@ -46,12 +46,21 @@ export function Select({ className, ...props }: ComponentProps<"select">) {
 }
 
 export function Field({ label, hint, error, children, className }: { label: string; hint?: ReactNode; error?: string; children: ReactNode; className?: string }) {
+  // The hint sits outside the <label> so it isn't read out as part of the field's name.
   return (
-    <label className={cn("grid gap-1.5", className)}>
-      <span className="text-[13px] font-medium text-ink-2">{label}</span>
-      {children}
-      {error ? <span className="text-[12.5px] text-down">{error}</span> : hint ? <span className="text-[12.5px] leading-snug text-muted">{hint}</span> : null}
-    </label>
+    <div className={cn("grid content-start gap-1.5", className)}>
+      <label className="grid gap-1.5">
+        <span className="text-[13px] font-medium text-ink-2">{label}</span>
+        {children}
+      </label>
+      {error ? (
+        <span role="alert" className="text-[12.5px] text-down">
+          {error}
+        </span>
+      ) : hint ? (
+        <span className="text-[12.5px] leading-snug text-muted">{hint}</span>
+      ) : null}
+    </div>
   );
 }
 
@@ -123,4 +132,10 @@ export function FormError({ children }: { children?: ReactNode }) {
       {children}
     </p>
   );
+}
+
+/** A neutral explanation, for when something is switched off rather than broken. */
+export function Notice({ children, className }: { children?: ReactNode; className?: string }) {
+  if (!children) return null;
+  return <p className={cn("rounded-panel border border-rule bg-well px-3.5 py-3 text-[13.5px] leading-relaxed text-ink-2", className)}>{children}</p>;
 }

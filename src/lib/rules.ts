@@ -78,7 +78,8 @@ export function formatPct(p: number | null): string {
 export function formatMs(ms: number | null | undefined): string {
   if (ms == null) return "–";
   if (ms < 1000) return `${Math.round(ms)} ms`;
-  return `${(ms / 1000).toFixed(ms < 10_000 ? 2 : 1)} s`;
+  // 1.23 s, 2.6 s, 2 s: two decimals at most, no trailing zeros.
+  return `${Number((ms / 1000).toFixed(ms < 10_000 ? 2 : 1))} s`;
 }
 
 /** "3 min", "1 h 12 min", "2 d 4 h": for incident lengths. */
@@ -119,3 +120,31 @@ export const INTERVALS = [
   { sec: 1800, label: "Every 30 minutes" },
   { sec: 3600, label: "Every hour" },
 ] as const;
+
+/** The probe's causes in Arabic, for incident updates on Arabic status pages. */
+export function causeAr(cause: string): string {
+  const timeout = cause.match(/^Timed out after (\d+) s$/);
+  if (timeout) {
+    const n = Number(timeout[1]);
+    return `انتهت المهلة بعد ${n === 1 ? "ثانية واحدة" : n === 2 ? "ثانيتين" : n <= 10 ? `${n} ثوانٍ` : `${n} ثانية`}`;
+  }
+  const http = cause.match(/^HTTP (\d{3})$/);
+  if (http) return `رمز الاستجابة HTTP ${http[1]}`;
+  const missing = cause.match(/^"(.+)" not on the page$/);
+  if (missing) return `النص "${missing[1]}" غير موجود في الصفحة`;
+  const found = cause.match(/^"(.+)" found on the page$/);
+  if (found) return `النص "${found[1]}" ظهر في الصفحة`;
+  const known: Record<string, string> = {
+    "Address not allowed (private network)": "عنوان غير مسموح به (شبكة خاصة)",
+    "Domain not found (DNS)": "النطاق غير موجود (DNS)",
+    "Connection refused": "رفض الخادم الاتصال",
+    "Connection reset": "انقطع الاتصال",
+    "Host unreachable": "تعذّر الوصول إلى الخادم",
+    "SSL certificate expired": "انتهت صلاحية شهادة SSL",
+    "SSL certificate doesn't match the domain": "شهادة SSL لا تطابق النطاق",
+    "Self-signed SSL certificate": "شهادة SSL موقّعة ذاتيًا",
+    "SSL certificate chain incomplete": "سلسلة شهادة SSL غير مكتملة",
+    "Check failed": "فشل الفحص",
+  };
+  return known[cause] ?? cause;
+}

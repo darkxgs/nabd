@@ -17,6 +17,7 @@ export function BeatStrip({
   sampleBefore,
   className,
   tall,
+  now,
 }: {
   beats: Beat[];
   slots?: number;
@@ -25,6 +26,8 @@ export function BeatStrip({
   sampleBefore?: Date | null;
   className?: string;
   tall?: boolean;
+  /** When given, a check from the last 90 seconds grows in as it arrives. */
+  now?: Date;
 }) {
   const shown = beats.slice(-slots);
   const pad = slots - shown.length;
@@ -43,14 +46,15 @@ export function BeatStrip({
       {Array.from({ length: pad }, (_, i) => (
         <span key={`p${i}`} className="h-[3px] rounded-[1px] bg-rule" />
       ))}
-      {shown.map((b) => {
+      {shown.map((b, i) => {
         const sample = !!sampleBefore && b.at < sampleBefore;
         const color = !b.ok ? "bg-down" : b.latencyMs != null && b.latencyMs > slowMs ? "bg-slow" : "bg-up";
+        const fresh = !!now && i === shown.length - 1 && now.getTime() - b.at.getTime() < 90_000;
         return (
           <span
             key={b.at.getTime()}
             title={`${fmtTime(b.at, tz)}  ${b.ok ? formatMs(b.latencyMs) : (b.error ?? "Failed")}${sample ? "  (sample)" : ""}`}
-            className={cn("rounded-[1px]", color, sample && "opacity-45")}
+            className={cn("origin-bottom rounded-[1px]", color, sample && "opacity-45", fresh && "animate-tick-in")}
             style={{ height: `${b.ok ? h(b.latencyMs) : 100}%` }}
           />
         );

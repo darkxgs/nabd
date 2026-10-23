@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { demoOutagesBetween, demoTargetMode } from "@/lib/demo-target";
-import { formatDuration, formatDurationAr, formatPct, isValidStatusSpec, nextState, statusMatches, uptimePct } from "@/lib/rules";
+import { causeAr, formatDuration, formatDurationAr, formatMs, formatPct, isValidStatusSpec, nextState, statusMatches, uptimePct } from "@/lib/rules";
+import { describeMonitor, describeStatus, MONITOR_DEFAULTS, normalizeUrl, parseMonitorForm } from "@/lib/monitor-input";
 import { isPublicAddress } from "@/server/net-guard";
 
 describe("expected status codes", () => {
@@ -70,10 +71,11 @@ describe("the network guard", () => {
 });
 
 describe("the demo target", () => {
-  it("goes down twice a day for 20 minutes", () => {
+  it("goes down twice a day for 30 minutes", () => {
     expect(demoTargetMode(new Date("2026-11-02T01:25:00Z"))).toBe("down");
-    expect(demoTargetMode(new Date("2026-11-02T13:39:00Z"))).toBe("down");
-    expect(demoTargetMode(new Date("2026-11-02T13:40:00Z"))).toBe("ok");
+    expect(demoTargetMode(new Date("2026-11-02T13:49:00Z"))).toBe("down");
+    expect(demoTargetMode(new Date("2026-11-02T13:50:00Z"))).toBe("ok");
+    expect(demoTargetMode(new Date("2026-11-02T13:19:00Z"))).toBe("ok");
     expect(demoTargetMode(new Date("2026-11-02T03:50:00Z"))).toBe("slow");
     const w = demoOutagesBetween(new Date("2026-11-01T00:00:00Z"), new Date("2026-11-03T00:00:00Z"));
     expect(w.map((x) => x.start.toISOString())).toEqual([
@@ -82,5 +84,57 @@ describe("the demo target", () => {
       "2026-11-02T01:20:00.000Z",
       "2026-11-02T13:20:00.000Z",
     ]);
+  });
+});
+
+describe("formatting", () => {
+  it("prints response times the way people read them", () => {
+    expect(formatMs(184)).toBe("184 ms");
+    expect(formatMs(2000)).toBe("2 s");
+    expect(formatMs(2600)).toBe("2.6 s");
+    expect(formatMs(1234)).toBe("1.23 s");
+    expect(formatMs(null)).toBe("–");
+  });
+
+  it("translates probe causes for Arabic status pages", () => {
+    expect(causeAr("HTTP 503")).toBe("رمز الاستجابة HTTP 503");
+    expect(causeAr("Timed out after 10 s")).toBe("انتهت المهلة بعد 10 ثوانٍ");
+    expect(causeAr("Timed out after 30 s")).toBe("انتهت المهلة بعد 30 ثانية");
+    expect(causeAr("Connection refused")).toBe("رفض الخادم الاتصال");
+    expect(causeAr("Something new")).toBe("Something new");
+  });
+});
+
+describe("the monitor form", () => {
+  const form = (o: Record<string, string>) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries({ url: "example.com", intervalSec: "300", method: "GET", expectedStatus: "200-399", keyword: "", keywordMode: "contains", timeoutSec: "10", slowMs: "2000", confirmAfter: "2", ...o })) f.set(k, v);
+    return f;
+  };
+
+  it("adds https:// and refuses things that aren't web addresses", () => {
+    expect(normalizeUrl("example.com/shop")).toBe("https://example.com/shop");
+    expect(normalizeUrl("http://example.com")).toBe("http://example.com/");
+    expect(normalizeUrl("ftp://example.com")).toBeNull();
+    expect(normalizeUrl("not a url")).toBeNull();
+    expect(normalizeUrl("intranet")).toBeNull();
+  });
+
+  it("explains each problem next to its field", () => {
+    expect(parseMonitorForm(form({}))).toMatchObject({ ok: true, value: { url: "https://example.com/", timeoutSec: 10 } });
+    expect(parseMonitorForm(form({ url: "https://user:pw@example.com" }))).toMatchObject({ ok: false, fields: { url: "Remove the username and password from the address." } });
+    expect(parseMonitorForm(form({ method: "HEAD", keyword: "Add to cart" }))).toMatchObject({ ok: false, fields: { keyword: expect.stringContaining("need GET") } });
+    expect(parseMonitorForm(form({ slowMs: "12000" }))).toMatchObject({ ok: false, fields: { slowMs: "Set this below the timeout." } });
+    expect(parseMonitorForm(form({ expectedStatus: "ok" }))).toMatchObject({ ok: false, fields: { expectedStatus: expect.any(String) } });
+    expect(parseMonitorForm(form({ intervalSec: "60" }))).toMatchObject({ ok: false, fields: { intervalSec: "Pick how often to check." } });
+  });
+
+  it("says in plain words what will happen", () => {
+    expect(describeStatus("200-399")).toBe("between 200 and 399");
+    expect(describeStatus("2xx,301")).toBe("any 2xx or 301");
+    const lines = describeMonitor({ ...MONITOR_DEFAULTS, url: "shop.example.com", keyword: "Add to cart" });
+    expect(lines[0]).toBe("Every 5 minutes, Nabd sends a GET request to shop.example.com.");
+    expect(lines[1]).toContain("the page contains “Add to cart”");
+    expect(lines[3]).toMatch(/^2 failed checks in a row open an incident/);
   });
 });

@@ -4,11 +4,11 @@
 
 export type TargetMode = "ok" | "slow" | "down";
 
-/** Down for 20 minutes twice a day (01:20 and 13:20 UTC); slow for 10 minutes every three hours. */
+/** Down for 30 minutes twice a day (01:20 and 13:20 UTC); slow for 10 minutes every three hours. */
 export function demoTargetMode(at: Date): TargetMode {
   const h = at.getUTCHours();
   const m = at.getUTCMinutes();
-  if (h % 12 === 1 && m >= 20 && m < 40) return "down";
+  if (h % 12 === 1 && m >= 20 && m < 50) return "down";
   if (h % 3 === 0 && m >= 45 && m < 55) return "slow";
   return "ok";
 }
@@ -20,7 +20,7 @@ export function demoOutagesBetween(from: Date, to: Date): { start: Date; end: Da
   for (; day < to; day.setUTCDate(day.getUTCDate() + 1)) {
     for (const h of [1, 13]) {
       const start = new Date(day.getTime() + h * 3_600_000 + 20 * 60_000);
-      const end = new Date(start.getTime() + 20 * 60_000);
+      const end = new Date(start.getTime() + 30 * 60_000);
       if (start >= from && end <= to) out.push({ start, end });
     }
   }

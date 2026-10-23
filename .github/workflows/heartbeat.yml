@@ -1,0 +1,25 @@
+# Free scheduling: GitHub runs this every five minutes (best effort; GitHub can
+# delay scheduled runs at busy times) and it asks Nabd to run whatever checks
+# are due. Page views and a daily Vercel cron also trigger runs, and the work
+# is throttled in the database, so overlapping triggers never double-check.
+name: Heartbeat
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Run due checks
+        env:
+          NABD_URL: ${{ vars.NABD_URL }}
+        run: |
+          if [ -z "$NABD_URL" ]; then
+            echo "::notice::Set the NABD_URL repository variable (Settings, Variables) to your deployment's address."
+            exit 0
+          fi
+          curl -fsS --max-time 90 --retry 2 "${NABD_URL%/}/api/tick"

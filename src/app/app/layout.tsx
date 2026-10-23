@@ -3,7 +3,8 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { Logo } from "@/components/brand";
 import { Nav } from "@/components/app/nav";
-import { DEMO } from "@/db/seed";
+import { DEMO } from "@/lib/demo";
+import { fmtLongDate } from "@/lib/time";
 import { requireWorkspace } from "@/server/auth";
 import { kickTick } from "@/server/jobs";
 import { openIncidents } from "@/server/queries";
@@ -47,8 +48,9 @@ async function Shell({ children }: { children: React.ReactNode }) {
       {isDemo ? (
         <div className="border-b border-rule bg-card">
           <p className="mx-auto max-w-6xl px-4 py-2 text-[13px] leading-relaxed text-ink-2 sm:px-6">
-            Demo workspace. These monitors check real sites every five minutes; the demo target fails at 01:20 and 13:20 UTC. History from before{" "}
-            {workspace.sampleBefore ? workspace.sampleBefore.toISOString().slice(0, 10) : "launch"} is sample data, shown faded. Visitors share this workspace, and it resets nightly.
+            You&apos;re in the shared demo. These monitors check real sites; the demo target fails on purpose at 01:20 and 13:20 UTC.
+            {workspace.sampleBefore ? ` History from before ${fmtLongDate(workspace.sampleBefore, workspace.timezone)} is sample data, shown faded.` : ""} Visitors share this workspace, and
+            it resets every night.
           </p>
         </div>
       ) : null}
