@@ -6,6 +6,15 @@ Uptime monitoring for small teams: Nabd checks your websites and APIs from the i
 
 **Live demo:** open the demo workspace from the home page, no sign-up needed. It watches the sites I've built (my portfolio, Mawid, Khatm, Sufra, Salad Store, NeoWave) every fifteen minutes, plus a test service that fails on purpose for 45 minutes from 01:20 and 13:20 UTC, so there is always an incident to look at.
 
+Live: https://nabd-status.vercel.app
+
+![The demo workspace: eight monitors, all up, with their last 48 checks](docs/screenshots/dashboard.jpg)
+
+| | |
+|---|---|
+| ![One monitor: uptime, response times and recent checks](docs/screenshots/monitor.jpg) | ![An incident timeline in English and Arabic](docs/screenshots/incident.jpg) |
+| ![The public status page in Arabic](docs/screenshots/status-ar.jpg) | |
+
 ## What it does
 
 **Monitors**
